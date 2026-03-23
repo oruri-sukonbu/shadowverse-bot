@@ -1,4 +1,3 @@
-
 const express = require('express');
 const app = express();
 
@@ -22,6 +21,11 @@ const parser = new Parser();
 const TOKEN = process.env.TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const RSS_URL = process.env.RSS_URL;
+
+if (!TOKEN || TOKEN.trim() === '') {
+  console.error('Error: Discord bot token is not set or is empty. Please set the TOKEN environment variable.');
+  process.exit(1);
+}
 
 let lastLink = '';
 
@@ -77,4 +81,8 @@ client.once('ready', async () => {
   }, 60000);
 });
 
-client.login(TOKEN);
+client.login(TOKEN).catch(error => {
+  console.error('Failed to login to Discord. Please check your TOKEN environment variable.');
+  console.error(error);
+  process.exit(1);
+});
