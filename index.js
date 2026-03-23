@@ -1,3 +1,4 @@
+
 const express = require('express');
 const app = express();
 
@@ -18,7 +19,7 @@ const client = new Client({
 
 const parser = new Parser();
 
-const TOKEN = process.env.DISCORD_TOKEN;
+const TOKEN = process.env.TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const RSS_URL = process.env.RSS_URL;
 
