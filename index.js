@@ -13,12 +13,12 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const Parser = require('rss-parser');
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
 });
 
 const parser = new Parser();
 
-const TOKEN = process.env.TOKEN;
+const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const RSS_URL = process.env.RSS_URL;
 
@@ -27,7 +27,9 @@ let lastLink = '';
 client.once('ready', async () => { 
   console.log(`ログイン成功: ${client.user.tag}`);
   const channel = await client.channels.fetch(CHANNEL_ID);
-  channel.send("Bot接続");
+  if (channel) {
+    channel.send("Bot接続");
+  }
 
   setInterval(() => {
     (async () => {
@@ -50,6 +52,7 @@ client.once('ready', async () => {
           lastLink = latest.link;
 
           const channel = await client.channels.fetch(CHANNEL_ID);
+          if (!channel) return;
 
           const embed = new EmbedBuilder()
             .setTitle("📢 新着シャドバ投稿！")
