@@ -1,14 +1,20 @@
 const express = require('express');
 const app = express();
 
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('Error: PORT environment variable is not set.');
+  process.exit(1);
+}
+
 app.get('/', (req, res) => {
   res.send('Bot is running!');
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Web server running on port ${PORT}`);
 });
+
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const Parser = require('rss-parser');
 
@@ -105,5 +111,5 @@ client.once('ready', async () => {
 client.login(TOKEN).catch(error => {
   console.error('Failed to login to Discord. Please check your TOKEN environment variable.');
   console.error(error);
-  process.exit(1);
+  // Do not exit process to keep the web server running
 });
