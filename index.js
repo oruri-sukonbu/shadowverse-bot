@@ -7,6 +7,7 @@ if (!PORT) {
   process.exit(1);
 }
 
+// Simple web server to keep the Render instance alive
 app.get('/', (req, res) => {
   res.send('Bot is running!');
 });
@@ -33,9 +34,19 @@ if (!TOKEN || TOKEN.trim() === '') {
   process.exit(1);
 }
 
+if (!CHANNEL_ID || CHANNEL_ID.trim() === '') {
+  console.error('Error: Discord channel ID is not set or is empty. Please set the CHANNEL_ID environment variable.');
+  process.exit(1);
+}
+
+if (!RSS_URL || RSS_URL.trim() === '') {
+  console.error('Error: RSS feed URL is not set or is empty. Please set the RSS_URL environment variable.');
+  process.exit(1);
+}
+
 let lastLink = '';
 
-// Function to fetch RSS feed and send new posts to Discord channel
+// Function to safely fetch RSS feed and send new posts to Discord channel
 async function checkRSSFeed() {
   try {
     const feed = await parser.parseURL(RSS_URL);
@@ -45,7 +56,6 @@ async function checkRSSFeed() {
     }
 
     const latest = feed.items[0];
-
     if (!latest || !latest.link) {
       console.warn('Latest RSS item is missing or has no link.');
       return;
@@ -64,7 +74,7 @@ async function checkRSSFeed() {
       return;
     }
 
-    // Extract image URL from enclosure or content
+    // Extract image URL from enclosure or content HTML
     let imageUrl = null;
     if (latest.enclosure && latest.enclosure.url) {
       imageUrl = latest.enclosure.url;
@@ -90,22 +100,36 @@ async function checkRSSFeed() {
 
   } catch (error) {
     console.error('Error occurred while checking RSS feed:', error);
-    // Could implement retry logic here if desired
   }
 }
 
+// Log in and set up event handlers for reconnecting and ready state
 client.once('ready', async () => {
   console.log(`ログイン成功: ${client.user.tag}`);
-  const channel = await client.channels.fetch(CHANNEL_ID);
+
+  const channel = await client.channels.fetch(CHANNEL_ID).catch(() => null);
   if (channel) {
-    channel.send("Bot接続");
+    channel.send("Bot接続").catch(() => {});
   } else {
     console.error(`Discord channel with ID ${CHANNEL_ID} not found on startup.`);
   }
 
-  // Check RSS feed immediately and then every 60 seconds
+  // Immediately check RSS feed and then every 60 seconds
   await checkRSSFeed();
   setInterval(checkRSSFeed, 60000);
+});
+
+// Handle disconnects and attempt automatic reconnect
+client.on('shardDisconnect', (event, shardId) => {
+  console.warn(`Shard ${shardId} disconnected. Attempting to reconnect...`);
+});
+
+client.on('error', error => {
+  console.error('Discord client error:', error);
+});
+
+client.on('warn', info => {
+  console.warn('Discord client warning:', info);
 });
 
 client.login(TOKEN).catch(error => {
