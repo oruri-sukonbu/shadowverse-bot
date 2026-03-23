@@ -29,56 +29,77 @@ if (!TOKEN || TOKEN.trim() === '') {
 
 let lastLink = '';
 
-client.once('ready', async () => { 
+// Function to fetch RSS feed and send new posts to Discord channel
+async function checkRSSFeed() {
+  try {
+    const feed = await parser.parseURL(RSS_URL);
+    if (!feed || !feed.items || feed.items.length === 0) {
+      console.warn('RSS feed is empty or unavailable.');
+      return;
+    }
+
+    const latest = feed.items[0];
+
+    if (!latest || !latest.link) {
+      console.warn('Latest RSS item is missing or has no link.');
+      return;
+    }
+
+    if (latest.link === lastLink) {
+      // No new post since last check
+      return;
+    }
+
+    lastLink = latest.link;
+
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    if (!channel) {
+      console.error(`Discord channel with ID ${CHANNEL_ID} not found.`);
+      return;
+    }
+
+    // Extract image URL from enclosure or content
+    let imageUrl = null;
+    if (latest.enclosure && latest.enclosure.url) {
+      imageUrl = latest.enclosure.url;
+    } else if (latest.content) {
+      const match = latest.content.match(/<img.*?src="(.*?)"/);
+      if (match) imageUrl = match[1];
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle("📢 新着シャドバ投稿！")
+      .setDescription(latest.title || '')
+      .setURL(latest.link)
+      .setColor(0x00AE86)
+      .setFooter({ text: "Shadowverse公式" })
+      .setTimestamp();
+
+    if (imageUrl) {
+      embed.setImage(imageUrl);
+    }
+
+    await channel.send({ embeds: [embed] });
+    console.log(`New post sent: ${latest.title}`);
+
+  } catch (error) {
+    console.error('Error occurred while checking RSS feed:', error);
+    // Could implement retry logic here if desired
+  }
+}
+
+client.once('ready', async () => {
   console.log(`ログイン成功: ${client.user.tag}`);
   const channel = await client.channels.fetch(CHANNEL_ID);
   if (channel) {
     channel.send("Bot接続");
+  } else {
+    console.error(`Discord channel with ID ${CHANNEL_ID} not found on startup.`);
   }
 
-  setInterval(() => {
-    (async () => {
-      try {
-        const feed = await parser.parseURL(RSS_URL);
-        const latest = feed.items[0];
-
-        // 画像URL取得（優先: enclosure → content内のimg）
-        let imageUrl = null;
-        if (latest.enclosure && latest.enclosure.url) {
-          imageUrl = latest.enclosure.url;
-        } else if (latest.content) {
-          const match = latest.content.match(/<img.*?src="(.*?)"/);
-          if (match) imageUrl = match[1];
-        }
-
-        if (!latest) return;
-
-        if (latest.link !== lastLink) {
-          lastLink = latest.link;
-
-          const channel = await client.channels.fetch(CHANNEL_ID);
-          if (!channel) return;
-
-          const embed = new EmbedBuilder()
-            .setTitle("📢 新着シャドバ投稿！")
-            .setDescription(latest.title)
-            .setURL(latest.link)
-            .setColor(0x00AE86)
-            .setFooter({ text: "Shadowverse公式" })
-            .setTimestamp();
-
-          // 画像があれば追加
-          if (imageUrl) {
-            embed.setImage(imageUrl);
-          }
-
-          channel.send({ embeds: [embed] });
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    })();
-  }, 60000);
+  // Check RSS feed immediately and then every 60 seconds
+  await checkRSSFeed();
+  setInterval(checkRSSFeed, 60000);
 });
 
 client.login(TOKEN).catch(error => {
